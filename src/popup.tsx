@@ -14,21 +14,22 @@ function IndexPopup() {
   const getEnabled = async () => {
     const enabled = await storage.get("commentExtensionEnabled") as boolean
     setEnabled(enabled)
+    sendToTabs(enabled)
   }
 
   const toggleExtension = () => {
     const newState = !enabled
     setEnabled(newState)
-    
-    // Guardar el estado en el almacenamiento local
     storage.set("commentExtensionEnabled", newState)
-    
-    // Enviar mensaje a la página de contenido
+    sendToTabs(newState)
+  }
+
+  const sendToTabs = ( state: boolean )=>{
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.id) {
         chrome.tabs.sendMessage(tabs[0].id, { 
           action: "toggleCommentMode",
-          enabled: newState
+          enabled: state
         })
       }
     })
