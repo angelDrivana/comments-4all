@@ -4,7 +4,8 @@ import { getComments } from "../services/comments"
 import cssText from "data-text:~style.css"
 import { Toolbar, type Mode } from "./components/Toolbar"
 import { CommentForm } from "./components/CommentForm"
-
+import ModalSignIn from "./components/ModalSignIn"
+import SignInComponent from "~components/signIn"
 export const getStyle = () => {
   const style = document.createElement("style")
   style.textContent = cssText
@@ -121,7 +122,9 @@ export default function CommentOverlay() {
       </div>
 
       <Toolbar currentMode={mode} onModeChange={setMode} />
-
+      <ModalSignIn>
+        <SignInComponent />
+      </ModalSignIn>
       {showForm && (
         <CommentForm
           coordinates={formPosition}
