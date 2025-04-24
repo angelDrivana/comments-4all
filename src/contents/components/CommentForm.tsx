@@ -3,6 +3,7 @@ import { supabase } from "../../core/supabase"
 import { insertComment } from "../../services/comments"
 import type { Comment } from "../../types/comment"
 interface CommentFormProps {
+  cursorPosition: number[]
   coordinates: [number, number]
   onSubmit: (comment: Comment) => void
   onCancel: () => void
@@ -16,6 +17,7 @@ const MOCK_USER = {
 
 export const CommentForm: React.FC<CommentFormProps> = ({
   coordinates,
+  cursorPosition,
   onSubmit,
   onCancel
 }) => {
@@ -29,7 +31,7 @@ export const CommentForm: React.FC<CommentFormProps> = ({
       return
     }
     return {
-      coordinates: coordinates,
+      coordinates: [cursorPosition[0], cursorPosition[1]],
       comment: comment,
       userId: user.data.user?.id,
       web_title: document.title,

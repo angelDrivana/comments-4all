@@ -21,6 +21,8 @@ export default function CommentOverlay() {
   const [showForm, setShowForm] = useState(false)
   const [formPosition, setFormPosition] = useState({ x: 0, y: 0 })
 
+  const [cursorPosition, setCursorPosition] = useState([0, 0])
+
   useEffect(() => {
     // Escuchar mensajes del popup
     chrome.runtime.onMessage.addListener((message) => {
@@ -45,6 +47,11 @@ export default function CommentOverlay() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
+  const handleCursorPosition = () => {
+    const cursorPosition = document.querySelector("body")?.getBoundingClientRect()
+    return cursorPosition
+  }
+
   const loadComments = async () => {
     const pageComments = await getComments(window.location.href)
     setComments(pageComments)
@@ -53,17 +60,16 @@ export default function CommentOverlay() {
   const handleClick = (e: React.MouseEvent) => {
     if (mode !== "comment") return
 
+    const cursorPosition = [(e.clientX + scrollPosition.x), (e.clientY + scrollPosition.y)]
+
     const x = e.clientX + scrollPosition.x
-    const y = e.clientY + scrollPosition.y
+    const y = e.clientY + e.pageY
     setFormPosition({ x, y })
     setShowForm(true)
+    setCursorPosition(cursorPosition)
   }
 
   const handleCommentSubmit = (comment: Comment) => {
-    console.log("Nuevo comentario:", {
-      comment,
-      coordinates: [formPosition.x, formPosition.y]
-    })
     setShowForm(false)
     loadComments()
   }
@@ -122,6 +128,7 @@ export default function CommentOverlay() {
 
       {showForm && (
         <CommentForm
+          cursorPosition={cursorPosition}
           coordinates={[formPosition.x, formPosition.y]}
           onSubmit={handleCommentSubmit}
           onCancel={() => setShowForm(false)}

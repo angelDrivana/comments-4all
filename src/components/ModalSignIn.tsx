@@ -14,7 +14,6 @@ export default function ModalSignIn({
   useEffect(() => {
     const handleMessage = (message: any) => {
       if (message.action === "showSignInModal") {
-        console.log("showSignInModal")
         setIsOpen(true)
       }
       return true
