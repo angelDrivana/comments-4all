@@ -55,13 +55,45 @@ export default function CommentOverlay() {
   const handleClick = (e: React.MouseEvent) => {
     if (mode !== "comment") return
 
-    const cursorPosition = [(e.clientX + scrollPosition.x), (e.clientY + scrollPosition.y)]
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const formWidth = 288 // w-72 = 18rem = 288px
+    const formHeight = 200 // altura aproximada del formulario
 
-    const x = e.clientX + scrollPosition.x
-    const y = e.clientY + scrollPosition.y
+    // Posición del clic relativa al viewport
+    const clickX = e.clientX
+    const clickY = e.clientY
+
+    // Posición absoluta del cursor para el comentario
+    const cursorPosition = [clickX + scrollPosition.x, clickY + scrollPosition.y]
+    setCursorPosition(cursorPosition)
+
+    let x = clickX + scrollPosition.x
+    let y = clickY + scrollPosition.y
+
+    // Verificar espacio vertical
+    if (clickY - formHeight < 0) {
+      // No hay espacio arriba, mostrar abajo
+      y = y + (formHeight + 10)
+    } else {
+      // Hay espacio arriba, mostrar arriba
+      y = y
+    }
+
+    // Verificar espacio horizontal
+    if (clickX + (formWidth/2) > viewportWidth) {
+      // No hay espacio a la derecha, mover hacia la izquierda
+      x = x - (formWidth/2)
+    } else if (clickX - (formWidth) < 0) {
+      // No hay espacio a la izquierda, mover hacia la derecha
+      x = (formWidth - 50)
+    } else {
+      // Centrar horizontalmente
+      x = x - (formWidth/2)
+    }
+
     setFormPosition({ x, y })
     setShowForm(true)
-    setCursorPosition(cursorPosition)
   }
 
   const handleCommentSubmit = (comment: Comment) => {

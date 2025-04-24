@@ -1,18 +1,13 @@
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { supabase } from "../../core/supabase"
 import { insertComment } from "../../services/comments"
 import type { Comment } from "../../types/comment"
+import type { User } from "@supabase/supabase-js"
 interface CommentFormProps {
   cursorPosition: number[]
   coordinates: [number, number]
   onSubmit: (comment: Comment) => void
   onCancel: () => void
-}
-
-// Usuario simulado
-const MOCK_USER = {
-  name: "Angel Mendez",
-  avatar: "https://i.pravatar.cc/150?u=angel"
 }
 
 export const CommentForm: React.FC<CommentFormProps> = ({
@@ -21,6 +16,23 @@ export const CommentForm: React.FC<CommentFormProps> = ({
   onSubmit,
   onCancel
 }) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [user, setUser] = useState<User | null>(null)
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.focus()
+    }
+  }, [coordinates])
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+    }
+    fetchUser()
+  }, [])
+
   const [comment, setComment] = useState("")
 
   const parseComment = async (comment: string): Promise<Comment> => {
@@ -67,27 +79,20 @@ export const CommentForm: React.FC<CommentFormProps> = ({
       <div className="p-3">
         {/* Usuario actual */}
         <div className="flex items-center gap-2 mb-3">
-          {MOCK_USER.avatar ? (
-            <img
-              src={MOCK_USER.avatar}
-              alt={MOCK_USER.name}
-              className="w-6 h-6 rounded-full"
-            />
-          ) : (
-            <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-semibold">
-              {MOCK_USER.name
-                .split(" ")
-                .map((part) => part[0])
-                .join("")
-                .toUpperCase()
-                .substring(0, 2)}
-            </div>
-          )}
-          <span className="text-sm font-medium">{MOCK_USER.name}</span>
+          <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-semibold">
+            {user?.email
+              .split(" ")
+              .map((part) => part[0])
+              .join("")
+              .toUpperCase()
+              .substring(0, 2)}
+          </div>
+          <span className="text-sm font-medium">{user?.email}</span>
         </div>
 
         <form onSubmit={handleSubmit}>
           <textarea
+            ref={textareaRef}
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             className="w-full h-24 p-2 border border-gray-200 rounded resize-none text-sm focus:outline-none focus:border-blue-500"

@@ -23,9 +23,6 @@ export const getComments = async (url: string): Promise<Comment[]> => {
     .order("created_at", { ascending: false });
 
 
-  console.log(comments, "COME")
-
-
   if (error) {
     console.error("Error al obtener comentarios:", error);
     return [];
