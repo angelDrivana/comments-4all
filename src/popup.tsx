@@ -5,6 +5,7 @@ import "./style.css"
 function IndexPopup() {
   const storage = new Storage()
   const [enabled, setEnabled] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     // Al iniciar, obtener el estado actual
@@ -15,6 +16,7 @@ function IndexPopup() {
     const enabled = await storage.get("commentExtensionEnabled") as boolean
     setEnabled(enabled)
     sendToTabs(enabled)
+    setIsLoading(false)
   }
 
   const toggleExtension = () => {
@@ -40,10 +42,12 @@ function IndexPopup() {
       <h2 className="text-lg font-bold mb-3 text-center">Comentarios</h2>
       <div className="flex items-center justify-between">
         <span className="text-sm text-red-500">Modo comentario</span>
+        {isLoading && <span className="text-sm text-gray-500">Cargando...</span>}
         <label className="relative inline-flex items-center cursor-pointer">
           <input 
             type="checkbox" 
             checked={enabled}
+            disabled={isLoading}
             onChange={toggleExtension}
             className="sr-only peer" 
           />
