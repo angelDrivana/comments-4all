@@ -47,11 +47,6 @@ export default function CommentOverlay() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  const handleCursorPosition = () => {
-    const cursorPosition = document.querySelector("body")?.getBoundingClientRect()
-    return cursorPosition
-  }
-
   const loadComments = async () => {
     const pageComments = await getComments(window.location.href)
     setComments(pageComments)
@@ -63,7 +58,7 @@ export default function CommentOverlay() {
     const cursorPosition = [(e.clientX + scrollPosition.x), (e.clientY + scrollPosition.y)]
 
     const x = e.clientX + scrollPosition.x
-    const y = e.clientY + e.pageY
+    const y = e.clientY + scrollPosition.y
     setFormPosition({ x, y })
     setShowForm(true)
     setCursorPosition(cursorPosition)
