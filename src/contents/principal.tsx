@@ -4,8 +4,9 @@ import { getComments } from "../services/comments"
 import cssText from "data-text:~style.css"
 import { Toolbar, type Mode } from "./components/Toolbar"
 import { CommentForm } from "./components/CommentForm"
-import ModalSignIn from "./components/ModalSignIn"
-import SignInComponent from "~components/signIn"
+import ModalSignIn from "../components/ModalSignIn"
+import SignIn from "../components/signIn"
+
 export const getStyle = () => {
   const style = document.createElement("style")
   style.textContent = cssText
@@ -58,7 +59,7 @@ export default function CommentOverlay() {
     setShowForm(true)
   }
 
-  const handleCommentSubmit = (comment: string) => {
+  const handleCommentSubmit = (comment: Comment) => {
     console.log("Nuevo comentario:", {
       comment,
       coordinates: [formPosition.x, formPosition.y]
@@ -100,38 +101,36 @@ export default function CommentOverlay() {
               }}
               className="w-8 h-8 rounded-full border border-gray-300 overflow-hidden cursor-pointer hover:scale-110 transition-transform"
             >
-              {comment.user.profile_photo ? (
-                <img
-                  src={comment.user.profile_photo}
-                  alt={comment.user.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-blue-500 flex items-center justify-center text-white font-semibold text-xs">
-                  {comment.user.name
-                    .split(" ")
-                    .map((part) => part[0])
-                    .join("")
-                    .toUpperCase()
-                    .substring(0, 2)}
-                </div>
-              )}
+              
+              <div className="w-full h-full bg-blue-500 flex items-center justify-center text-white font-semibold text-xs">
+                {comment.user?.username
+                  .split(" ")
+                  .map((part) => part[0])
+                  .join("")
+                  .toUpperCase()
+                  .substring(0, 2)}
+              </div>
+              <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs font-medium text-gray-700">
+                {comment.user?.username}
+              </div>
             </div>
           )
         })}
       </div>
 
       <Toolbar currentMode={mode} onModeChange={setMode} />
-      <ModalSignIn>
-        <SignInComponent />
-      </ModalSignIn>
+
       {showForm && (
         <CommentForm
-          coordinates={formPosition}
+          coordinates={[formPosition.x, formPosition.y]}
           onSubmit={handleCommentSubmit}
           onCancel={() => setShowForm(false)}
         />
       )}
+
+      <ModalSignIn>
+        <SignIn />
+      </ModalSignIn>
     </>
   )
 }

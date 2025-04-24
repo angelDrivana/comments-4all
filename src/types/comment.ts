@@ -1,14 +1,15 @@
 export interface Comment {
-  id: string;
-  user: {
-    name: string;
+  id?: string;
+  userId: string;
+  user?: {
+    username: string;
     profile_photo?: string;
   };
   comment: string;
-  created_at: string;
+  created_at?: string;
   coordinates: [number, number];
-  webTitle: string;
-  currentLocation: string;
+  web_title: string;
+  current_location: string;
 }
 
 export interface PageInfo {

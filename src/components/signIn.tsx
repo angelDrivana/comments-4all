@@ -1,5 +1,5 @@
 import type { Provider, User } from "@supabase/supabase-js"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import React from "react"
 import { Storage } from "@plasmohq/storage"
 import { useStorage } from "@plasmohq/storage/hook"
@@ -48,15 +48,6 @@ function SignInComponent() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleOAuthLogin = async (provider: Provider) => {
-    await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: location.href
-      }
-    })
   }
 
   if (user) {

@@ -1,8 +1,10 @@
 import { useState } from "react"
-
+import { supabase } from "../../core/supabase"
+import { insertComment } from "../../services/comments"
+import type { Comment } from "../../types/comment"
 interface CommentFormProps {
-  coordinates: { x: number; y: number }
-  onSubmit: (comment: string) => void
+  coordinates: [number, number]
+  onSubmit: (comment: Comment) => void
   onCancel: () => void
 }
 
@@ -19,11 +21,33 @@ export const CommentForm: React.FC<CommentFormProps> = ({
 }) => {
   const [comment, setComment] = useState("")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const parseComment = async (comment: string): Promise<Comment> => {
+    const user = await supabase.auth.getUser()
+
+    if (!user) {
+      console.error("No se encontró el usuario")
+      return
+    }
+    return {
+      coordinates: coordinates,
+      comment: comment,
+      userId: user.data.user?.id,
+      web_title: document.title,
+      current_location: window.location.href
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (comment.trim()) {
-      onSubmit(comment)
-      setComment("")
+      const parsedComment = await parseComment(comment)
+      onSubmit(parsedComment)
+      try {
+        await insertComment(parsedComment)
+        setComment("")
+      } catch (error) {
+        console.error("Error al insertar comentario", error)
+      }
     }
   }
 
@@ -31,8 +55,8 @@ export const CommentForm: React.FC<CommentFormProps> = ({
     <div
       style={{
         position: "absolute",
-        top: coordinates.y,
-        left: coordinates.x,
+        top: coordinates[1],
+        left: coordinates[0],
         transform: "translate(-50%, -100%)",
         zIndex: 9999
       }}

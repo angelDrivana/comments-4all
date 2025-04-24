@@ -9,18 +9,25 @@ interface ModalProps {
 export default function ModalSignIn({
   children
 }: ModalProps) {
-
   const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
-    chrome.runtime.onMessage.addListener((message) => {
+    const handleMessage = (message: any) => {
       if (message.action === "showSignInModal") {
         console.log("showSignInModal")
         setIsOpen(true)
       }
       return true
-    })
+    }
 
+    chrome.runtime.onMessage.addListener(handleMessage)
+
+    return () => {
+      chrome.runtime.onMessage.removeListener(handleMessage)
+    }
+  }, [])
+
+  useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden"
     } else {
@@ -30,7 +37,6 @@ export default function ModalSignIn({
 
   const handleClose = () => {
     setIsOpen(false)
-    chrome.runtime.sendMessage({ action: "closeSignInModal" })
   }
 
   if (!isOpen) return null
