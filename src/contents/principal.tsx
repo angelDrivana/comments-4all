@@ -8,9 +8,11 @@ export const getStyle = () => {
   style.textContent = cssText
   return style
 }
+
 export default function CommentOverlay() {
   const [isActive, setIsActive] = useState(false)
   const [comments, setComments] = useState<Comment[]>([])
+  const [scrollPosition, setScrollPosition] = useState({ x: 0, y: 0 })
 
   useEffect(() => {
     // Escuchar mensajes del popup
@@ -23,6 +25,17 @@ export default function CommentOverlay() {
       }
       return true
     })
+
+    // Escuchar el evento de scroll
+    const handleScroll = () => {
+      setScrollPosition({
+        x: window.scrollX,
+        y: window.scrollY
+      })
+    }
+
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
   const loadComments = async () => {
@@ -43,8 +56,8 @@ export default function CommentOverlay() {
             key={comment.id}
             style={{
               position: "absolute",
-              top: `${y}px`,
-              left: `${x}px`,
+              top: `${y - scrollPosition.y}px`,
+              left: `${x - scrollPosition.x}px`,
               pointerEvents: "auto"
             }}
             className="w-8 h-8 rounded-full border border-gray-300 overflow-hidden cursor-pointer hover:scale-110 transition-transform"
