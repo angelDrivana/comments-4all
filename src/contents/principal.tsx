@@ -6,6 +6,18 @@ import { Toolbar, type Mode } from "./components/Toolbar"
 import { CommentForm } from "./components/CommentForm"
 import ModalSignIn from "../components/ModalSignIn"
 import SignIn from "../components/signIn"
+import { supabase } from "~src/core/supabase"
+import { useStorage } from "@plasmohq/storage/hook"
+import type { User } from "@supabase/supabase-js"
+import { Storage } from "@plasmohq/storage"
+import { UserCursor } from "./components/UserCursor"
+
+interface CursorPosition {
+  x: number
+  y: number
+  username: string
+  userId: string
+}
 
 export const getStyle = () => {
   const style = document.createElement("style")
@@ -14,28 +26,41 @@ export const getStyle = () => {
 }
 
 export default function CommentOverlay() {
+  const [user, setUser] = useStorage<User | null>({
+    key: "user",
+    instance: new Storage({
+      area: "local"
+    })
+  })
   const [isActive, setIsActive] = useState(false)
   const [comments, setComments] = useState<Comment[]>([])
   const [scrollPosition, setScrollPosition] = useState({ x: 0, y: 0 })
   const [mode, setMode] = useState<Mode>("normal")
   const [showForm, setShowForm] = useState(false)
   const [formPosition, setFormPosition] = useState({ x: 0, y: 0 })
-
   const [cursorPosition, setCursorPosition] = useState([0, 0])
+  const [otherCursors, setOtherCursors] = useState<CursorPosition[]>([])
 
+  // Efecto para inicializar la sesión
   useEffect(() => {
-    // Escuchar mensajes del popup
-    chrome.runtime.onMessage.addListener((message) => {
-      if (message.action === "toggleCommentMode") {
-        setIsActive(message.enabled)
-        if (message.enabled) {
-          loadComments()
-        }
-      }
-      return true
-    })
+    const init = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+    }
+    init()
+  }, [])
 
-    // Escuchar el evento de scroll
+  // Efecto para cargar comentarios cuando se active y haya usuario
+  useEffect(() => {
+    if (isActive && user?.id) {
+      loadComments()
+    }
+  }, [isActive, user?.id])
+
+  // Efecto para manejar el scroll
+  useEffect(() => {
+    if (!isActive) return
+
     const handleScroll = () => {
       setScrollPosition({
         x: window.scrollX,
@@ -45,50 +70,105 @@ export default function CommentOverlay() {
 
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
+  }, [isActive])
+
+  // Efecto para manejar el movimiento del cursor
+  useEffect(() => {
+    if (!user?.id || !isActive) return
+
+    const url = window.location.href
+    const channel = supabase.channel(`cursors_in_page_${url}`)
+
+    channel
+      .on('broadcast', { event: 'cursor-position' }, (payload) => {
+        if (payload.payload.userId === user.id) return
+        
+        setOtherCursors(prev => {
+          const filtered = prev.filter(c => c.userId !== payload.payload.userId)
+          return [...filtered, payload.payload]
+        })
+      })
+      .subscribe()
+
+    const handleMouseMove = (e: MouseEvent) => {
+      channel.send({
+        type: 'broadcast',
+        event: 'cursor-position',
+        payload: {
+          x: e.clientX + scrollPosition.x,
+          y: e.clientY + scrollPosition.y,
+          username: user.email,
+          userId: user.id
+        }
+      })
+    }
+
+    window.addEventListener("mousemove", handleMouseMove)
+    
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove)
+      channel.unsubscribe()
+      setOtherCursors([])
+    }
+  }, [user?.id, scrollPosition, isActive])
+
+  // Efecto para manejar los mensajes del popup
+  useEffect(() => {
+    const messageHandler = async (message: any) => {
+      if (message.action === "toggleCommentMode") {
+        console.log("toggleCommentMode", message.enabled)
+        setIsActive(message.enabled)
+        
+        if (!message.enabled) {
+          console.log("ELSE DE LOAD COMMENTS")
+          setComments([])
+          setOtherCursors([])
+          setShowForm(false)
+          setMode("normal")
+        }
+      }
+      return true
+    }
+
+    chrome.runtime.onMessage.addListener(messageHandler)
+    return () => chrome.runtime.onMessage.removeListener(messageHandler)
   }, [])
 
   const loadComments = async () => {
+    console.log("USER LOADOMMENTS", user?.id)
+    if (!user?.id) return
     const pageComments = await getComments(window.location.href)
     setComments(pageComments)
   }
 
   const handleClick = (e: React.MouseEvent) => {
-    if (mode !== "comment") return
+    if (mode !== "comment" || !user?.id || !isActive) return
 
     const viewportWidth = window.innerWidth
     const viewportHeight = window.innerHeight
-    const formWidth = 288 // w-72 = 18rem = 288px
-    const formHeight = 200 // altura aproximada del formulario
+    const formWidth = 288
+    const formHeight = 200
 
-    // Posición del clic relativa al viewport
     const clickX = e.clientX
     const clickY = e.clientY
 
-    // Posición absoluta del cursor para el comentario
     const cursorPosition = [clickX + scrollPosition.x, clickY + scrollPosition.y]
     setCursorPosition(cursorPosition)
 
     let x = clickX + scrollPosition.x
     let y = clickY + scrollPosition.y
 
-    // Verificar espacio vertical
     if (clickY - formHeight < 0) {
-      // No hay espacio arriba, mostrar abajo
       y = y + (formHeight + 10)
     } else {
-      // Hay espacio arriba, mostrar arriba
       y = y
     }
 
-    // Verificar espacio horizontal
     if (clickX + (formWidth/2) > viewportWidth) {
-      // No hay espacio a la derecha, mover hacia la izquierda
       x = x - (formWidth/2)
     } else if (clickX - (formWidth) < 0) {
-      // No hay espacio a la izquierda, mover hacia la derecha
       x = (formWidth - 50)
     } else {
-      // Centrar horizontalmente
       x = x - (formWidth/2)
     }
 
@@ -98,11 +178,10 @@ export default function CommentOverlay() {
 
   const handleCommentSubmit = (comment: Comment) => {
     setShowForm(false)
-    loadComments()
   }
 
-  if (!isActive) {
-    return null
+  if (!user?.id || !isActive) {
+    return <ModalSignIn><SignIn /></ModalSignIn>
   }
 
   return (
@@ -115,6 +194,14 @@ export default function CommentOverlay() {
             : "default"
         }}
       >
+        {otherCursors.map((cursor) => (
+          <UserCursor
+            key={cursor.userId}
+            position={{ x: cursor.x - scrollPosition.x, y: cursor.y - scrollPosition.y }}
+            username={cursor.username}
+          />
+        ))}
+
         <div 
           className="absolute inset-0" 
           style={{ pointerEvents: mode === "comment" ? "auto" : "none" }}
@@ -134,7 +221,6 @@ export default function CommentOverlay() {
               }}
               className="w-8 h-8 rounded-full border border-gray-300 overflow-hidden cursor-pointer hover:scale-110 transition-transform"
             >
-              
               <div className="w-full h-full bg-blue-500 flex items-center justify-center text-white font-semibold text-xs">
                 {comment.user?.username
                   .split(" ")

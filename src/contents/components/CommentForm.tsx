@@ -3,6 +3,8 @@ import { supabase } from "../../core/supabase"
 import { insertComment } from "../../services/comments"
 import type { Comment } from "../../types/comment"
 import type { User } from "@supabase/supabase-js"
+import { useStorage } from "@plasmohq/storage/hook"
+import { Storage } from "@plasmohq/storage"
 interface CommentFormProps {
   cursorPosition: number[]
   coordinates: [number, number]
@@ -17,8 +19,12 @@ export const CommentForm: React.FC<CommentFormProps> = ({
   onCancel
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [user, setUser] = useState<User | null>(null)
-
+  const [user, setUser] = useStorage<User | null>({
+    key: "user",
+    instance: new Storage({
+      area: "local"
+    })
+  })
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.focus()
@@ -36,7 +42,9 @@ export const CommentForm: React.FC<CommentFormProps> = ({
   const [comment, setComment] = useState("")
 
   const parseComment = async (comment: string): Promise<Comment> => {
-    const user = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    setUser(user)
 
     if (!user) {
       console.error("No se encontró el usuario")
@@ -45,7 +53,7 @@ export const CommentForm: React.FC<CommentFormProps> = ({
     return {
       coordinates: [cursorPosition[0], cursorPosition[1]],
       comment: comment,
-      userId: user.data.user?.id,
+      userId: user.id,
       web_title: document.title,
       current_location: window.location.href
     }
