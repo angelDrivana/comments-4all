@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react"
 import { supabase } from "../../core/supabase"
 import { insertComment } from "../../services/comments"
-import type { Comment } from "../../types/comment"
+import type { Comment, BoundElement } from "../../types/comment"
 import type { User } from "@supabase/supabase-js"
 import { useStorage } from "@plasmohq/storage/hook"
 import { Storage } from "@plasmohq/storage"
+
 interface CommentFormProps {
   cursorPosition: number[]
   coordinates: [number, number]
+  boundElement: BoundElement
   onSubmit: (comment: Comment) => void
   onCancel: () => void
 }
@@ -15,6 +17,7 @@ interface CommentFormProps {
 export const CommentForm: React.FC<CommentFormProps> = ({
   coordinates,
   cursorPosition,
+  boundElement,
   onSubmit,
   onCancel
 }) => {
@@ -25,6 +28,7 @@ export const CommentForm: React.FC<CommentFormProps> = ({
       area: "local"
     })
   })
+
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.focus()
@@ -50,12 +54,14 @@ export const CommentForm: React.FC<CommentFormProps> = ({
       console.error("No se encontró el usuario")
       return
     }
+
     return {
       coordinates: [cursorPosition[0], cursorPosition[1]],
       comment: comment,
       userId: user.id,
       web_title: document.title,
-      current_location: window.location.href
+      current_location: window.location.href,
+      boundElement: boundElement
     }
   }
 
@@ -82,7 +88,7 @@ export const CommentForm: React.FC<CommentFormProps> = ({
         transform: "translate(-50%, -100%)",
         zIndex: 9999
       }}
-      className="bg-white rounded-lg border border-gray-200 shadow-sm w-72"
+      className="bg-white rounded-lg border border-gray-200 w-72"
     >
       <div className="p-3">
         {/* Usuario actual */}
@@ -96,6 +102,60 @@ export const CommentForm: React.FC<CommentFormProps> = ({
               .substring(0, 2)}
           </div>
           <span className="text-sm font-medium">{user?.email}</span>
+        </div>
+
+        {/* Información del elemento */}
+        <div className="mb-3 text-xs text-gray-500">
+          {boundElement ? (
+            <>
+              <div className="space-y-1">
+                <p className="font-medium text-gray-700">Elemento seleccionado:</p>
+                <p>
+                  <span className="text-gray-600">Tipo:</span> {boundElement.elementDescriptor.tagName.toLowerCase()}
+                  {boundElement.elementDescriptor.className && (
+                    <span className="ml-1 text-blue-500">.{boundElement.elementDescriptor.className.split(' ')[0]}</span>
+                  )}
+                  {boundElement.elementDescriptor.id && (
+                    <span className="ml-1 text-orange-500">#{boundElement.elementDescriptor.id}</span>
+                  )}
+                </p>
+                
+                {boundElement.originalElement && (
+                  <p className="text-gray-400">
+                    <span className="text-gray-500">Elemento original:</span> {boundElement.originalElement.originalTagName.toLowerCase()}
+                  </p>
+                )}
+
+                <p className="text-gray-400">
+                  <span className="text-gray-500">Dimensiones:</span> {boundElement.dimensions.width.toFixed(0)}x{boundElement.dimensions.height.toFixed(0)}px
+                </p>
+                
+                <div className="text-xs text-gray-500 space-y-1">
+                  <p>
+                    <span className="text-gray-600">Posición en elemento:</span>{' '}
+                    {boundElement.percentagePositionInRect.x}%, {boundElement.percentagePositionInRect.y}%
+                  </p>
+                  
+                  <p>
+                    <span className="text-gray-600">Posición en página:</span>{' '}
+                    {boundElement.position.x}px, {boundElement.position.y}px
+                  </p>
+
+                  <p>
+                    <span className="text-gray-600">Tamaño de pantalla:</span>{' '}
+                    {boundElement.screenInfo.screenSize.x}x{boundElement.screenInfo.screenSize.y}
+                  </p>
+
+                  <p>
+                    <span className="text-gray-600">Scroll:</span>{' '}
+                    {boundElement.screenInfo.scrollPosition}px
+                  </p>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p>No se pudo obtener información del elemento</p>
+          )}
         </div>
 
         <form onSubmit={handleSubmit}>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import type { Comment } from "../types/comment"
+import type { BoundElement } from "../types/comment"
 import { getComments } from "../services/comments"
 import cssText from "data-text:~style.css"
 import { Toolbar, type Mode } from "./components/Toolbar"
@@ -25,6 +26,221 @@ export const getStyle = () => {
   return style
 }
 
+const getElementXPath = (element: Element): string => {
+  // Si el elemento tiene ID, usamos eso directamente
+  if (element.id) {
+    return `//*[@id="${element.id}"]`;
+  }
+
+  // Si llegamos al <html>, terminamos
+  if (!element.parentElement) {
+    return '/html';
+  }
+
+  // Obtener el índice del elemento entre sus hermanos del mismo tipo
+  const siblings = Array.from(element.parentElement.children);
+  const sameTypeSiblings = siblings.filter(sibling => 
+    sibling.tagName === element.tagName
+  );
+  const index = sameTypeSiblings.indexOf(element) + 1;
+
+  // Construir el path para este elemento
+  const pathSegment = `${element.tagName.toLowerCase()}[${index}]`;
+
+  // Si es el elemento raíz, devolver el path
+  if (element.parentElement.tagName.toLowerCase() === 'html') {
+    return `/html/${pathSegment}`;
+  }
+
+  // Recursivamente construir el path
+  return `${getElementXPath(element.parentElement)}/${pathSegment}`;
+};
+
+const getFullXPath = (element: Element): string => {
+  const parts: string[] = [];
+  let current = element;
+
+  while (current && current.nodeType === Node.ELEMENT_NODE) {
+    let xpath = current.tagName.toLowerCase();
+
+    // Si el elemento tiene ID, usarlo
+    if (current.id) {
+      xpath += `[@id="${current.id}"]`;
+    }
+    // Si el elemento tiene clase, usarla
+    else if (current.className) {
+      xpath += `[@class="${current.className}"]`;
+    }
+    // Si no, usar su posición
+    else {
+      let count = 1;
+      let sibling = current.previousElementSibling;
+
+      while (sibling) {
+        if (sibling.tagName === current.tagName) count++;
+        sibling = sibling.previousElementSibling;
+      }
+
+      if (count > 1) xpath += `[${count}]`;
+    }
+
+    parts.unshift(xpath);
+    current = current.parentElement!;
+  }
+
+  return '/' + parts.join('/');
+};
+
+const findMostSpecificElement = (elements: Element[]): Element => {
+  // Filtrar elementos que no queremos
+  const validElements = elements.filter(el => {
+    const tagName = el.tagName.toLowerCase();
+    return (
+      // Excluir elementos base
+      !['html', 'body', 'head', 'script', 'style', 'link', 'meta'].includes(tagName) &&
+      // Excluir elementos de nuestro overlay
+      !el.classList.contains('pointer-events-none') &&
+      // Excluir elementos sin dimensiones
+      el.getBoundingClientRect().width > 0 &&
+      el.getBoundingClientRect().height > 0
+    );
+  });
+
+  if (validElements.length === 0) {
+    return elements[0]; // Fallback al primer elemento si no encontramos válidos
+  }
+
+  // Encontrar el elemento con la menor área (más específico)
+  return validElements.reduce((mostSpecific, current) => {
+    const currentRect = current.getBoundingClientRect();
+    const mostSpecificRect = mostSpecific.getBoundingClientRect();
+    
+    const currentArea = currentRect.width * currentRect.height;
+    const mostSpecificArea = mostSpecificRect.width * mostSpecificRect.height;
+    
+    return currentArea < mostSpecificArea ? current : mostSpecific;
+  }, validElements[0]);
+};
+
+const getElementInfo = (element: Element, clickX: number, clickY: number) => {
+  // Obtener todos los elementos en el punto del clic
+  const elementsAtPoint = document.elementsFromPoint(clickX, clickY);
+  
+  // Encontrar el elemento más específico
+  const targetElement = findMostSpecificElement(elementsAtPoint);
+  
+  const rect = targetElement.getBoundingClientRect();
+  
+  // Calcular posición relativa dentro del elemento
+  const positionInRect = {
+    x: Math.min(Math.max(0, clickX - rect.left), rect.width),
+    y: Math.min(Math.max(0, clickY - rect.top), rect.height)
+  };
+  
+  // Calcular posición en porcentaje dentro del elemento
+  const percentagePositionInRect = {
+    x: Math.min(Math.round((positionInRect.x / rect.width) * 100 * 100) / 100, 100),
+    y: Math.min(Math.round((positionInRect.y / rect.height) * 100 * 100) / 100, 100)
+  };
+
+  // Obtener información de la pantalla
+  const screenInfo = {
+    screenSize: {
+      x: window.innerWidth,
+      y: window.innerHeight
+    },
+    scrollPosition: window.scrollY
+  };
+
+  // Posición absoluta en la página
+  const position = {
+    x: clickX + window.scrollX,
+    y: clickY + window.scrollY
+  };
+
+  console.log('Element Info:', {
+    element: targetElement.tagName,
+    classes: targetElement.className,
+    xpath: getElementXPath(targetElement),
+    fullXPath: getFullXPath(targetElement),
+    rect,
+    elementsAtPoint: elementsAtPoint.map(el => el.tagName)
+  });
+  
+  return {
+    xPath: getElementXPath(targetElement),
+    fullXPath: getFullXPath(targetElement),
+    elementDescriptor: {
+      tagName: targetElement.tagName,
+      id: targetElement.id || "",
+      className: (targetElement as HTMLElement).className || ""
+    },
+    percentagePositionInRect,
+    positionInRect,
+    position,
+    screenInfo,
+    dimensions: {
+      width: rect.width,
+      height: rect.height
+    }
+  };
+};
+
+// Función para calcular la posición actual basada en porcentajes
+const calculatePositionFromPercentage = (comment: Comment) => {
+  console.log("COMMENT", comment)
+  // Si no hay boundElement, usar las coordenadas antiguas
+  if (!comment.boundElement) {
+    console.warn('Comment without boundElement, using legacy coordinates:', comment);
+    return comment.coordinates ? {
+      x: comment.coordinates[0],
+      y: comment.coordinates[1]
+    } : null;
+  }
+
+  const { boundElement } = comment;
+  
+  // Encontrar el elemento actual usando el XPath
+  const getElementByXPath = (xpath: string) => {
+    try {
+      return document.evaluate(
+        xpath,
+        document,
+        null,
+        XPathResult.FIRST_ORDERED_NODE_TYPE,
+        null
+      ).singleNodeValue as Element;
+    } catch (e) {
+      console.error('Error finding element by XPath:', e);
+      return null;
+    }
+  };
+
+  // Intentar encontrar el elemento por XPath
+  const element = getElementByXPath(boundElement.xPath) || getElementByXPath(boundElement.fullXPath);
+  
+  if (!element) {
+    console.warn('Element not found for comment, using legacy coordinates:', comment);
+    return comment.boundElement ? {
+      x: comment.boundElement.position.x,
+      y: comment.boundElement.position.y
+    } : null;
+  }
+
+  // Obtener las dimensiones actuales del elemento
+  const rect = element.getBoundingClientRect();
+  
+  // Calcular la posición actual basada en los porcentajes originales
+  const currentX = (boundElement.percentagePositionInRect.x * rect.width) / 100;
+  const currentY = (boundElement.percentagePositionInRect.y * rect.height) / 100;
+
+  // Posición absoluta en la página
+  return {
+    x: rect.left + currentX + window.scrollX,
+    y: rect.top + currentY + window.scrollY
+  };
+};
+
 export default function CommentOverlay() {
   const [user, setUser] = useStorage<User | null>({
     key: "user",
@@ -40,6 +256,7 @@ export default function CommentOverlay() {
   const [formPosition, setFormPosition] = useState({ x: 0, y: 0 })
   const [cursorPosition, setCursorPosition] = useState([0, 0])
   const [otherCursors, setOtherCursors] = useState<CursorPosition[]>([])
+  const [boundElement, setBoundElement] = useState<BoundElement | null>(null)
 
   // Efecto para inicializar la sesión
   useEffect(() => {
@@ -187,15 +404,23 @@ export default function CommentOverlay() {
   }
 
   const handleClick = (e: React.MouseEvent) => {
-    if (mode !== "comment" || !user?.id || !isActive) return
+    if (mode !== "comment" || !user?.id || !isActive) return;
 
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-    const formWidth = 288
-    const formHeight = 200
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const formWidth = 288;
+    const formHeight = 200;
 
-    const clickX = e.clientX
-    const clickY = e.clientY
+    const clickX = e.clientX;
+    const clickY = e.clientY;
+
+    const elementInfo = getElementInfo(e.target as Element, clickX, clickY);
+    setBoundElement(elementInfo);
+
+    console.log('Click target:', {
+      element: elementInfo.elementDescriptor.tagName,
+      elementInfo
+    });
 
     const cursorPosition = [clickX + scrollPosition.x, clickY + scrollPosition.y]
     setCursorPosition(cursorPosition)
@@ -223,6 +448,7 @@ export default function CommentOverlay() {
 
   const handleCommentSubmit = (comment: Comment) => {
     setShowForm(false)
+    setBoundElement(null)
   }
 
   if (!user?.id || !isActive) {
@@ -254,19 +480,26 @@ export default function CommentOverlay() {
         />
         
         {comments.map((comment) => {
-          const [x, y] = comment.coordinates
+          const position = calculatePositionFromPercentage(comment);
+          
+          if (!position) {
+            console.warn('Could not calculate position for comment:', comment);
+            return null;
+          }
+          
           return (
             <div
               key={comment.id}
               style={{
                 position: "absolute",
-                top: `${y - scrollPosition.y}px`,
-                left: `${x - scrollPosition.x}px`,
+                top: `${position.y - scrollPosition.y}px`,
+                left: `${position.x - scrollPosition.x}px`,
                 pointerEvents: "auto"
               }}
-              className="w-8 h-8 rounded-full border border-gray-300 overflow-hidden cursor-pointer hover:scale-110 transition-transform"
+              className="w-8 h-8 rounded-full border border-gray-300 overflow-hidden cursor-pointer hover:scale-110 transition-transform group"
+              title={comment.boundElement ? 'Comentario anclado al elemento' : 'Comentario en posición fija'}
             >
-              <div className="w-full h-full bg-blue-500 flex items-center justify-center text-white font-semibold text-xs">
+              <div className={`w-full h-full flex items-center justify-center text-white font-semibold text-xs ${comment.boundElement ? 'bg-blue-500' : 'bg-gray-500'}`}>
                 {comment.user?.username
                   .split(" ")
                   .map((part) => part[0])
@@ -274,22 +507,29 @@ export default function CommentOverlay() {
                   .toUpperCase()
                   .substring(0, 2)}
               </div>
-              <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs font-medium text-gray-700">
+              <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs font-medium text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity">
                 {comment.user?.username}
+                {!comment.boundElement && (
+                  <span className="ml-1 text-gray-500">(posición fija)</span>
+                )}
               </div>
             </div>
-          )
+          );
         })}
       </div>
 
       <Toolbar currentMode={mode} onModeChange={setMode} />
 
-      {showForm && (
+      {showForm && boundElement && (
         <CommentForm
           cursorPosition={cursorPosition}
           coordinates={[formPosition.x, formPosition.y]}
+          boundElement={boundElement}
           onSubmit={handleCommentSubmit}
-          onCancel={() => setShowForm(false)}
+          onCancel={() => {
+            setShowForm(false)
+            setBoundElement(null)
+          }}
         />
       )}
 

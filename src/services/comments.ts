@@ -10,7 +10,8 @@ const parseComments = (comments: any[]): Comment[] => {
     user: comment.userId as {id: string, username: string},
     coordinates: comment.coordinates,
     web_title: comment.web_title,
-    current_location: comment.current_location
+    current_location: comment.current_location,
+    boundElement: comment.boundElement
   }));
 };
 export const getComments = async (url: string): Promise<Comment[]> => {
@@ -18,7 +19,7 @@ export const getComments = async (url: string): Promise<Comment[]> => {
 
   const { data: comments, error } = await supabase
     .from("comments")
-    .select("id, comment, created_at, coordinates, web_title, current_location, userId (id, username)")
+    .select("id, comment, created_at, coordinates, web_title, current_location, boundElement, userId (id, username)")
     .eq("current_location", url)
     .order("created_at", { ascending: false });
 
