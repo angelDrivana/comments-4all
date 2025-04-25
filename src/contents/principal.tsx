@@ -57,6 +57,51 @@ export default function CommentOverlay() {
     }
   }, [isActive, user?.id])
 
+  // Efecto para escuchar cambios en la tabla comments
+  useEffect(() => {
+    if (!isActive || !user?.id) return
+
+    const channel = supabase
+      .channel('comments-changes')
+      .on(
+        'postgres_changes' as any,
+        {
+          event: '*',
+          schema: 'public',
+          table: 'comments'
+        },
+        async (payload: {
+          eventType: 'INSERT' | 'DELETE'
+          new: Comment | null
+          old: { id: string } | null
+        }) => {
+          console.log('Cambio en comments:', payload)
+          
+          // Si es el mismo usuario que hizo el cambio, ignoramos
+          // if (payload.new && payload.new.userId === user.id) return
+
+          switch (payload.eventType) {
+            case 'INSERT':
+              if (payload.new) {
+                const userProfile = await supabase.from('profiles').select('username').eq('id', payload.new.userId).single()
+                setComments(prev => [...prev, { ...payload.new, user: userProfile.data } as Comment])
+              }
+              break
+            case 'DELETE':
+              if (payload.old) {
+                setComments(prev => prev.filter(comment => comment.id !== payload.old?.id))
+              }
+              break
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      channel.unsubscribe()
+    }
+  }, [isActive, user?.id])
+
   // Efecto para manejar el scroll
   useEffect(() => {
     if (!isActive) return
