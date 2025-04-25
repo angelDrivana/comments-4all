@@ -257,6 +257,7 @@ export default function CommentOverlay() {
   const [cursorPosition, setCursorPosition] = useState([0, 0])
   const [otherCursors, setOtherCursors] = useState<CursorPosition[]>([])
   const [boundElement, setBoundElement] = useState<BoundElement | null>(null)
+  const [hoverElement, setHoverElement] = useState<Element | null>(null)
 
   // Efecto para inicializar la sesión
   useEffect(() => {
@@ -451,91 +452,148 @@ export default function CommentOverlay() {
     setBoundElement(null)
   }
 
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (mode !== "comment") {
+      setHoverElement(null)
+      return
+    }
+
+    const elementsAtPoint = document.elementsFromPoint(e.clientX, e.clientY)
+    const targetElement = findValidElement(elementsAtPoint)
+    
+    if (targetElement) {
+      setHoverElement(targetElement)
+    } else {
+      setHoverElement(null)
+    }
+  }
+
+  const findValidElement = (elements: Element[]): Element | null => {
+    const invalidTags = ['html', 'body', 'head', 'script', 'style', 'link', 'meta', 'plasmo-csui']
+    
+    return elements.find(element => {
+      const isValid = 
+        !invalidTags.includes(element.tagName.toLowerCase()) &&
+        !element.classList?.contains('pointer-events-none') &&
+        element.getBoundingClientRect().width > 0 &&
+        element.getBoundingClientRect().height > 0
+      
+      return isValid
+    }) || null
+  }
+
+  const handleMouseLeave = () => {
+    setHoverElement(null)
+  }
+
   if (!user?.id || !isActive) {
     return <ModalSignIn><SignIn /></ModalSignIn>
   }
 
   return (
     <>
-      <div 
-        className="fixed inset-0 pointer-events-none"
+    {/* Hover Indicator */}
+    {mode === "comment" && hoverElement && (
+      <div
+        className="fixed border-2 border-blue-500 bg-blue-500/10 pointer-events-none transition-all duration-200 z-50"
         style={{
-          cursor: mode === "comment" 
-            ? "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%232563eb\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"></path><line x1=\"12\" y1=\"7\" x2=\"12\" y2=\"13\" /><line x1=\"9\" y1=\"10\" x2=\"15\" y2=\"10\" /></svg>'), auto"
-            : "default"
+          top: `${hoverElement.getBoundingClientRect().top}px`,
+          left: `${hoverElement.getBoundingClientRect().left}px`,
+          width: `${hoverElement.getBoundingClientRect().width}px`,
+          height: `${hoverElement.getBoundingClientRect().height}px`
         }}
       >
-        {otherCursors.map((cursor) => (
-          <UserCursor
-            key={cursor.userId}
-            position={{ x: cursor.x - scrollPosition.x, y: cursor.y - scrollPosition.y }}
-            username={cursor.username}
-          />
-        ))}
-
-        <div 
-          className="absolute inset-0" 
-          style={{ pointerEvents: mode === "comment" ? "auto" : "none" }}
-          onClick={handleClick}
-        />
-        
-        {comments.map((comment) => {
-          const position = calculatePositionFromPercentage(comment);
-          
-          if (!position) {
-            console.warn('Could not calculate position for comment:', comment);
-            return null;
-          }
-          
-          return (
-            <div
-              key={comment.id}
-              style={{
-                position: "absolute",
-                top: `${position.y - scrollPosition.y}px`,
-                left: `${position.x - scrollPosition.x}px`,
-                pointerEvents: "auto"
-              }}
-              className="w-8 h-8 rounded-full border border-gray-300 overflow-hidden cursor-pointer hover:scale-110 transition-transform group"
-              title={comment.boundElement ? 'Comentario anclado al elemento' : 'Comentario en posición fija'}
-            >
-              <div className={`w-full h-full flex items-center justify-center text-white font-semibold text-xs ${comment.boundElement ? 'bg-blue-500' : 'bg-gray-500'}`}>
-                {comment.user?.username
-                  .split(" ")
-                  .map((part) => part[0])
-                  .join("")
-                  .toUpperCase()
-                  .substring(0, 2)}
-              </div>
-              <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs font-medium text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity">
-                {comment.user?.username}
-                {!comment.boundElement && (
-                  <span className="ml-1 text-gray-500">(posición fija)</span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        <div className="absolute -top-6 left-0 bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+          {hoverElement.tagName.toLowerCase()}
+          {hoverElement.className && typeof hoverElement.className === 'string' && (
+            <span className="ml-1 opacity-75">.{hoverElement.className.split(' ')[0]}</span>
+          )}
+        </div>
       </div>
+    )}
 
-      <Toolbar currentMode={mode} onModeChange={setMode} />
-
-      {showForm && boundElement && (
-        <CommentForm
-          cursorPosition={cursorPosition}
-          coordinates={[formPosition.x, formPosition.y]}
-          boundElement={boundElement}
-          onSubmit={handleCommentSubmit}
-          onCancel={() => {
-            setShowForm(false)
-            setBoundElement(null)
-          }}
+    <div 
+      className="fixed inset-0 pointer-events-none"
+      style={{
+        cursor: mode === "comment" 
+          ? "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%232563eb\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"></path><line x1=\"12\" y1=\"7\" x2=\"12\" y2=\"13\" /><line x1=\"9\" y1=\"10\" x2=\"15\" y2=\"10\" /></svg>'), auto"
+          : "default"
+      }}
+    >
+      
+      {otherCursors.map((cursor) => (
+        <UserCursor
+          key={cursor.userId}
+          position={{ x: cursor.x - scrollPosition.x, y: cursor.y - scrollPosition.y }}
+          username={cursor.username}
         />
-      )}
+      ))}
 
-      <ModalSignIn>
-        <SignIn />
-      </ModalSignIn>
-    </>
-  )
+      <div 
+        className="absolute inset-0" 
+        style={{ pointerEvents: mode === "comment" ? "auto" : "none" }}
+        onClick={handleClick}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      />
+      
+      {comments.map((comment) => {
+        const position = calculatePositionFromPercentage(comment);
+        
+        if (!position) {
+          console.warn('Could not calculate position for comment:', comment);
+          return null;
+        }
+        
+        return (
+          <div
+            key={comment.id}
+            style={{
+              position: "absolute",
+              top: `${position.y - scrollPosition.y}px`,
+              left: `${position.x - scrollPosition.x}px`,
+              pointerEvents: "auto"
+            }}
+            className="w-8 h-8 rounded-full border border-gray-300 overflow-hidden cursor-pointer hover:scale-110 transition-transform group"
+            title={comment.boundElement ? 'Comentario anclado al elemento' : 'Comentario en posición fija'}
+          >
+            <div className={`w-full h-full flex items-center justify-center text-white font-semibold text-xs ${comment.boundElement ? 'bg-blue-500' : 'bg-gray-500'}`}>
+              {comment.user?.username
+                .split(" ")
+                .map((part) => part[0])
+                .join("")
+                .toUpperCase()
+                .substring(0, 2)}
+            </div>
+            <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap text-xs font-medium text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity">
+              {comment.user?.username}
+              {!comment.boundElement && (
+                <span className="ml-1 text-gray-500">(posición fija)</span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+
+    <Toolbar currentMode={mode} onModeChange={setMode} />
+
+    {showForm && boundElement && (
+      <CommentForm
+        cursorPosition={cursorPosition}
+        coordinates={[formPosition.x, formPosition.y]}
+        boundElement={boundElement}
+        onSubmit={handleCommentSubmit}
+        onCancel={() => {
+          setShowForm(false)
+          setBoundElement(null)
+        }}
+      />
+    )}
+
+    <ModalSignIn>
+      <SignIn />
+    </ModalSignIn>
+  </>
+)
 }
