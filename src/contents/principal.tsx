@@ -11,14 +11,7 @@ import { supabase } from "~src/core/supabase"
 import { useStorage } from "@plasmohq/storage/hook"
 import type { User } from "@supabase/supabase-js"
 import { Storage } from "@plasmohq/storage"
-import { UserCursor } from "./components/UserCursor"
-
-interface CursorPosition {
-  x: number
-  y: number
-  username: string
-  userId: string
-}
+import { MessageCircle } from 'lucide-react'
 
 export const getStyle = () => {
   const style = document.createElement("style")
@@ -188,7 +181,6 @@ const getElementInfo = (element: Element, clickX: number, clickY: number) => {
 
 // Función para calcular la posición actual basada en porcentajes
 const calculatePositionFromPercentage = (comment: Comment) => {
-  console.log("COMMENT", comment)
   // Si no hay boundElement, usar las coordenadas antiguas
   if (!comment.boundElement) {
     console.warn('Comment without boundElement, using legacy coordinates:', comment);
@@ -255,7 +247,6 @@ export default function CommentOverlay() {
   const [showForm, setShowForm] = useState(false)
   const [formPosition, setFormPosition] = useState({ x: 0, y: 0 })
   const [cursorPosition, setCursorPosition] = useState([0, 0])
-  const [otherCursors, setOtherCursors] = useState<CursorPosition[]>([])
   const [boundElement, setBoundElement] = useState<BoundElement | null>(null)
   const [hoverElement, setHoverElement] = useState<Element | null>(null)
 
@@ -335,46 +326,6 @@ export default function CommentOverlay() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [isActive])
 
-  // Efecto para manejar el movimiento del cursor
-  useEffect(() => {
-    if (!user?.id || !isActive) return
-
-    const url = window.location.href
-    const channel = supabase.channel(`cursors_in_page_${url}`)
-
-    channel
-      .on('broadcast', { event: 'cursor-position' }, (payload) => {
-        if (payload.payload.userId === user.id) return
-        
-        setOtherCursors(prev => {
-          const filtered = prev.filter(c => c.userId !== payload.payload.userId)
-          return [...filtered, payload.payload]
-        })
-      })
-      .subscribe()
-
-    const handleMouseMove = (e: MouseEvent) => {
-      channel.send({
-        type: 'broadcast',
-        event: 'cursor-position',
-        payload: {
-          x: e.clientX + scrollPosition.x,
-          y: e.clientY + scrollPosition.y,
-          username: user.email,
-          userId: user.id
-        }
-      })
-    }
-
-    window.addEventListener("mousemove", handleMouseMove)
-    
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove)
-      channel.unsubscribe()
-      setOtherCursors([])
-    }
-  }, [user?.id, scrollPosition, isActive])
-
   // Efecto para manejar los mensajes del popup
   useEffect(() => {
     const messageHandler = async (message: any) => {
@@ -385,7 +336,6 @@ export default function CommentOverlay() {
         if (!message.enabled) {
           console.log("ELSE DE LOAD COMMENTS")
           setComments([])
-          setOtherCursors([])
           setShowForm(false)
           setMode("normal")
         }
@@ -486,6 +436,10 @@ export default function CommentOverlay() {
     setHoverElement(null)
   }
 
+  const cursorIcon = () => {
+    return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7.9 20A9 9 0 1 0 4 16.1L2 22Z'/><path d='M8 12h8'/><path d='M12 8v8'/></svg>`;
+  }
+
   if (!user?.id || !isActive) {
     return <ModalSignIn><SignIn /></ModalSignIn>
   }
@@ -514,21 +468,7 @@ export default function CommentOverlay() {
 
     <div 
       className="fixed inset-0 pointer-events-none"
-      style={{
-        cursor: mode === "comment" 
-          ? "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"%232563eb\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z\"></path><line x1=\"12\" y1=\"7\" x2=\"12\" y2=\"13\" /><line x1=\"9\" y1=\"10\" x2=\"15\" y2=\"10\" /></svg>'), auto"
-          : "default"
-      }}
     >
-      
-      {otherCursors.map((cursor) => (
-        <UserCursor
-          key={cursor.userId}
-          position={{ x: cursor.x - scrollPosition.x, y: cursor.y - scrollPosition.y }}
-          username={cursor.username}
-        />
-      ))}
-
       <div 
         className="absolute inset-0" 
         style={{ pointerEvents: mode === "comment" ? "auto" : "none" }}

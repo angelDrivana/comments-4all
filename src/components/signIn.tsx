@@ -4,6 +4,7 @@ import React from "react"
 import { Storage } from "@plasmohq/storage"
 import { useStorage } from "@plasmohq/storage/hook"
 import { supabase } from "../core/supabase"
+import { Button } from '@headlessui/react'
 
 function SignInComponent() {
   const [user, setUser] = useStorage<User | null>({
@@ -22,6 +23,7 @@ function SignInComponent() {
     username: string,
     password: string
   ) => {
+    console.log("handleEmailLogin", type, username, password)
     try {
       setIsLoading(true)
       const {
@@ -30,9 +32,9 @@ function SignInComponent() {
       } =
         type === "LOGIN"
           ? await supabase.auth.signInWithPassword({
-              email: username,
-              password
-            })
+            email: username,
+            password
+          })
           : await supabase.auth.signUp({ email: username, password })
 
       if (error) {
@@ -117,13 +119,12 @@ function SignInComponent() {
       </div>
 
       <div className="flex flex-col gap-2">
-        <button
+        <Button
           onClick={() => handleEmailLogin("LOGIN", username, password)}
           disabled={isLoading}
-          className="w-full px-4 py-2 text-sm text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50"
-        >
+          className="rounded bg-sky-600 px-4 py-2 text-sm text-white data-active:bg-sky-700 data-hover:bg-sky-500">
           {isLoading ? "Iniciando sesión..." : "Iniciar sesión"}
-        </button>
+        </Button>
 
         <button
           onClick={() => handleEmailLogin("SIGNUP", username, password)}
