@@ -37,4 +37,13 @@ export const insertComment = async (comment: Comment) => {
     .from("comments")
     .insert(comment)
     .select();
+
+  if (error) {
+    console.error("Error al insertar comentario:", error);
+    return;
+  }
+
+  return data;
+  
+
 };

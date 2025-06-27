@@ -3,7 +3,7 @@ import { useState } from "react"
 import React from "react"
 import { Storage } from "@plasmohq/storage"
 import { useStorage } from "@plasmohq/storage/hook"
-import { supabase } from "~core/supabase"
+import { supabase } from "../core/supabase"
 
 function SignInComponent() {
   const [user, setUser] = useStorage<User | null>({
@@ -37,9 +37,12 @@ function SignInComponent() {
 
       if (error) {
         alert("Error con la autenticación: " + error.message)
-      } else if (!user && type === "SIGNUP") {
-        alert("Registro exitoso, revisa tu correo para confirmar tu cuenta.")
-      } else {
+        return
+      }
+
+      if (user) {
+        // Siempre intenta crear el perfil, ignora el error si ya existe
+        await supabase.from("profiles").insert({ id: user.id, username }).select()
         setUser(user)
       }
     } catch (error) {
@@ -47,6 +50,22 @@ function SignInComponent() {
       alert(error.error_description || error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const signUp = async () => {
+    const { data, error } = await supabase.auth.signUp({
+      email: username,
+      password
+    })
+
+    if (error) {
+      alert("Error al crear cuenta: " + error.message)
+      return
+    }
+    if (data.user) {
+      await supabase.from("profiles").insert({ id: data.user.id, username }).select()
+      setUser(data.user)
     }
   }
 
