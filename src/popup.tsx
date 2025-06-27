@@ -3,7 +3,7 @@ import { Storage } from "@plasmohq/storage"
 import { useStorage } from "@plasmohq/storage/hook"
 import type { User } from "@supabase/supabase-js"
 import "./style.css"
-import { supabase } from "~core/supabase"
+import { supabase } from "./core/supabase"
 
 function IndexPopup() {
   const storage = new Storage()

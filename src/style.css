@@ -1,3 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+#plasmo-shadow-container {
+  z-index: 20 !important;
+}
+
+.max-z-index {
+  z-index: 1000000 !important;
+}

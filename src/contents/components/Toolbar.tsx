@@ -1,15 +1,16 @@
 import { useState } from "react"
-import { MessageCircle, Eye } from "lucide-react"
+import { MessageCircle, Eye, RefreshCw } from "lucide-react"
 export type Mode = "normal" | "comment"
 
 interface ToolbarProps {
   onModeChange: (mode: Mode) => void
   currentMode: Mode
+  onReload?: () => void
 }
 
-export const Toolbar: React.FC<ToolbarProps> = ({ onModeChange, currentMode }) => {
+export const Toolbar: React.FC<ToolbarProps> = ({ onModeChange, currentMode, onReload }) => {
   return (
-    <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-full border border-gray-200 shadow-sm flex items-center p-1 gap-1">
+    <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white rounded-full border border-gray-200 flex items-center p-1 gap-1">
       <button
         onClick={() => onModeChange("normal")}
         className={`p-2 rounded-full transition-colors ${
@@ -32,6 +33,15 @@ export const Toolbar: React.FC<ToolbarProps> = ({ onModeChange, currentMode }) =
         title="Agregar comentario"
       >
         <MessageCircle />
+      </button>
+
+      <button
+        onClick={onReload}
+        className="p-2 rounded-full transition-colors hover:bg-gray-100 text-gray-600"
+        title="Recargar comentarios"
+        type="button"
+      >
+        <RefreshCw />
       </button>
     </div>
   )

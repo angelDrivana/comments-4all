@@ -11,7 +11,7 @@ import { supabase } from "~src/core/supabase"
 import { useStorage } from "@plasmohq/storage/hook"
 import type { User } from "@supabase/supabase-js"
 import { Storage } from "@plasmohq/storage"
-import { MessageCircle } from 'lucide-react'
+import { CommentViewModal } from "./components/CommentViewModal"
 
 export const getStyle = () => {
   const style = document.createElement("style")
@@ -184,10 +184,7 @@ const calculatePositionFromPercentage = (comment: Comment) => {
   // Si no hay boundElement, usar las coordenadas antiguas
   if (!comment.boundElement) {
     console.warn('Comment without boundElement, using legacy coordinates:', comment);
-    return comment.coordinates ? {
-      x: comment.coordinates[0],
-      y: comment.coordinates[1]
-    } : null;
+    return null;
   }
 
   const { boundElement } = comment;
@@ -213,10 +210,7 @@ const calculatePositionFromPercentage = (comment: Comment) => {
   
   if (!element) {
     console.warn('Element not found for comment, using legacy coordinates:', comment);
-    return comment.boundElement ? {
-      x: comment.boundElement.position.x,
-      y: comment.boundElement.position.y
-    } : null;
+    return null;
   }
 
   // Obtener las dimensiones actuales del elemento
@@ -249,6 +243,8 @@ export default function CommentOverlay() {
   const [cursorPosition, setCursorPosition] = useState([0, 0])
   const [boundElement, setBoundElement] = useState<BoundElement | null>(null)
   const [hoverElement, setHoverElement] = useState<Element | null>(null)
+  const [selectedComment, setSelectedComment] = useState<Comment | null>(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   // Efecto para inicializar la sesión
   useEffect(() => {
@@ -349,6 +345,7 @@ export default function CommentOverlay() {
 
   const loadComments = async () => {
     console.log("USER LOADOMMENTS", user?.id)
+    setComments([])
     if (!user?.id) return
     const pageComments = await getComments(window.location.href)
     setComments(pageComments)
@@ -362,8 +359,8 @@ export default function CommentOverlay() {
     const formWidth = 288;
     const formHeight = 200;
 
-    const clickX = e.clientX;
-    const clickY = e.clientY;
+    const clickX = e.clientX - 20;
+    const clickY = e.clientY - 20;
 
     const elementInfo = getElementInfo(e.target as Element, clickX, clickY);
     setBoundElement(elementInfo);
@@ -440,6 +437,18 @@ export default function CommentOverlay() {
     return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M7.9 20A9 9 0 1 0 4 16.1L2 22Z'/><path d='M8 12h8'/><path d='M12 8v8'/></svg>`;
   }
 
+  // Handler para abrir el modal al hacer click en un comentario
+  const handleCommentClick = (comment: Comment) => {
+    setSelectedComment(comment)
+    setIsModalOpen(true)
+  }
+
+  // Handler para cerrar el modal
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setSelectedComment(null)
+  }
+
   if (!user?.id || !isActive) {
     return <ModalSignIn><SignIn /></ModalSignIn>
   }
@@ -496,6 +505,7 @@ export default function CommentOverlay() {
             }}
             className="w-8 h-8 rounded-full border border-gray-300 overflow-hidden cursor-pointer hover:scale-110 transition-transform group"
             title={comment.boundElement ? 'Comentario anclado al elemento' : 'Comentario en posición fija'}
+            onClick={() => handleCommentClick(comment)}
           >
             <div className={`w-full h-full flex items-center justify-center text-white font-semibold text-xs ${comment.boundElement ? 'bg-blue-500' : 'bg-gray-500'}`}>
               {comment.user?.username
@@ -516,7 +526,7 @@ export default function CommentOverlay() {
       })}
     </div>
 
-    <Toolbar currentMode={mode} onModeChange={setMode} />
+    <Toolbar currentMode={mode} onModeChange={setMode} onReload={loadComments} />
 
     {showForm && boundElement && (
       <CommentForm
@@ -534,6 +544,12 @@ export default function CommentOverlay() {
     <ModalSignIn>
       <SignIn />
     </ModalSignIn>
+
+    <CommentViewModal
+      isOpen={isModalOpen}
+      onClose={handleCloseModal}
+      comment={selectedComment}
+    />
   </>
 )
 }
