@@ -549,6 +549,8 @@ export default function CommentOverlay() {
       isOpen={isModalOpen}
       onClose={handleCloseModal}
       comment={selectedComment}
+      currentUser={user}
+      onDelete={(commentId) => setComments(comments => comments.filter(c => c.id !== commentId))}
     />
   </>
 )

@@ -47,6 +47,7 @@ export interface Comment {
   id?: string;
   userId: string;
   user?: {
+    id: string;
     username: string;
     profile_photo?: string;
   };
